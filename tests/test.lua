@@ -9,9 +9,14 @@ local tab = {
 
 print("Start")
 
+function baz()
+  print("In baz")
+end
+
 function bar()
   print("In bar 1")
   print("In bar 2")
+  return baz()
 end
 
 for i = 1, 10 do

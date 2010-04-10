@@ -112,7 +112,7 @@ end
 local function debug_hook(event, line)
   if event == "call" then
     stack_level = stack_level + 1
-  elseif event == "return" then
+  elseif event == "return" or event == "tail return" then
     stack_level = stack_level - 1
   else
     local file = debug.getinfo(2, "S").source
