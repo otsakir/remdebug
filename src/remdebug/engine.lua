@@ -95,13 +95,14 @@ end
 local function break_dir(path) 
   local paths = {}
   path = string.gsub(path, "\\", "/")
-  for w in string.gfind(path, "[^\/]+") do
+  for w in string.gfind(path, "[^/]+") do
     table.insert(paths, w)
   end
   return paths
 end
 
 local function merge_paths(path1, path2)
+  if path2:sub(1,1) == '/' then return path2 end
   local paths1 = break_dir(path1)
   local paths2 = break_dir(path2)
   for i, path in ipairs(paths2) do
