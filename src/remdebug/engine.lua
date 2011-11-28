@@ -50,15 +50,17 @@ local function restore_vars(vars)
   while true do
     local name = debug.getlocal(3, i)
     if not name then break end
-    debug.setlocal(3, i, vars[name])
-    written_vars[name] = true
+    if vars[name] and not written_vars[name] then
+      debug.setlocal(3, i, vars[name])
+      written_vars[name] = true
+    end
     i = i + 1
   end
   i = 1
   while true do
     local name = debug.getupvalue(func, i)
     if not name then break end
-    if not written_vars[name] then
+    if vars[name] and not written_vars[name] then
       debug.setupvalue(func, i, vars[name])
       written_vars[name] = true
     end
@@ -80,7 +82,10 @@ local function capture_vars()
   while true do
     local name, value = debug.getlocal(3, i)
     if not name then break end
-    vars[name] = value
+    -- ignore temporary variables
+    if name:sub(1,1) ~= '(' then
+      vars[name] = value
+    end
     i = i + 1
   end
   setmetatable(vars, { __index = getfenv(func), __newindex = getfenv(func) })
