@@ -13,59 +13,12 @@ local client = server:accept()
 
 local breakpoints = {}
 local watches = {}
-
-client:send("STEP\n")
-client:receive()
-
--- local state
-if #arg > 0 and arg[1] ==  "-r" then
-  local f = io.open("remdebug.state","r")
-  if f ~= nil then
-    print("Resuming debugger status")
-    local lines = f:lines()
-    for line in lines do 
-      --local _,_, 
-      print('line: ', line) 
-    end
-  else
-    print("No previous debugger state found")
-  end
-end
-
-local breakpoint = client:receive()
-local _, _, file, line = string.find(breakpoint, "^202 Paused%s+([%w%p]+)%s+(%d+)$")
-if file and line then
-  print("Paused at file " .. file )
-  print("Type 'help' for commands")
-else
-  local _, _, size = string.find(breakpoint, "^401 Error in Execution (%d+)$")
-  if size then
-    print("Error in remote application: ")
-    print(client:receive(size))
-  end
-end
-
 local basedir = ""
 
 function setb(line)
-  local _, _, _, filename, line = string.find(line, "^([a-z]+)%s+([%w%p]+)%s+(%d+)$")
-  if filename and line then
-    filename = basedir .. filename
-    if not breakpoints[filename] then breakpoints[filename] = {} end
-    client:send("SETB " .. string.gsub(filename, " ", "%%20") .. " " .. line .. "\n")
-    if client:receive() == "200 OK" then 
-      breakpoints[filename][line] = true
-    else
-      print("Error: breakpoint not inserted")
-    end
-  else
-    print("Invalid command")
-  end  
 end
-
-while true do
-  io.write("> ")
-  local line = io.read("*line")
+  
+function process_line(line)
   local _, _, command = string.find(line, "^([a-z]+)")
   if command == "run" or command == "step" or command == "over" then
     client:send(string.upper(command) .. "\n")
@@ -101,7 +54,19 @@ while true do
     client:close()
     os.exit()
   elseif command == "setb" then
-    setb(line)
+    local _, _, _, filename, line = string.find(line, "^([a-z]+)%s+([%w%p]+)%s+(%d+)$")
+    if filename and line then
+      filename = basedir .. filename
+      if not breakpoints[filename] then breakpoints[filename] = {} end
+      client:send("SETB " .. string.gsub(filename, " ", "%%20") .. " " .. line .. "\n")
+      if client:receive() == "200 OK" then 
+        breakpoints[filename][line] = true
+      else
+        print("Error: breakpoint not inserted")
+      end
+    else
+      print("Invalid command")
+    end  
   elseif command == "setw" then
     local _, _, exp = string.find(line, "^[a-z]+%s+(.+)$")
     if exp then
@@ -249,4 +214,42 @@ while true do
       print("Invalid command")
     end
   end
+end
+
+client:send("STEP\n")
+client:receive()
+
+local breakpoint = client:receive()
+local _, _, file, line = string.find(breakpoint, "^202 Paused%s+([%w%p]+)%s+(%d+)$")
+if file and line then
+  print("Paused at file " .. file )  
+  -- resume state if present
+  if #arg > 0 and arg[1] ==  "-r" then
+    local f = io.open("remdebug.state","r")
+    if f ~= nil then
+      print("Resuming debugger state")
+      local lines = f:lines()
+      for line in lines do 
+        --local _,_, 
+        print('+ ', line) 
+        process_line(line)
+      end
+    else
+      print("No previous debugger state found")
+    end
+  end  
+  
+  print("Type 'help' for commands")
+else
+  local _, _, size = string.find(breakpoint, "^401 Error in Execution (%d+)$")
+  if size then
+    print("Error in remote application: ")
+    print(client:receive(size))
+  end
+end
+
+while true do
+  io.write("> ")
+  local line = io.read("*line")
+  process_line(line)
 end
