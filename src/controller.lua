@@ -17,6 +17,21 @@ local watches = {}
 client:send("STEP\n")
 client:receive()
 
+-- local state
+if #arg > 0 and arg[1] ==  "-r" then
+  local f = io.open("remdebug.state","r")
+  if f ~= nil then
+    print("Resuming debugger status")
+    local lines = f:lines()
+    for line in lines do 
+      --local _,_, 
+      print('line: ', line) 
+    end
+  else
+    print("No previous debugger state found")
+  end
+end
+
 local breakpoint = client:receive()
 local _, _, file, line = string.find(breakpoint, "^202 Paused%s+([%w%p]+)%s+(%d+)$")
 if file and line then
@@ -31,6 +46,22 @@ else
 end
 
 local basedir = ""
+
+function setb(line)
+  local _, _, _, filename, line = string.find(line, "^([a-z]+)%s+([%w%p]+)%s+(%d+)$")
+  if filename and line then
+    filename = basedir .. filename
+    if not breakpoints[filename] then breakpoints[filename] = {} end
+    client:send("SETB " .. string.gsub(filename, " ", "%%20") .. " " .. line .. "\n")
+    if client:receive() == "200 OK" then 
+      breakpoints[filename][line] = true
+    else
+      print("Error: breakpoint not inserted")
+    end
+  else
+    print("Invalid command")
+  end  
+end
 
 while true do
   io.write("> ")
@@ -70,19 +101,7 @@ while true do
     client:close()
     os.exit()
   elseif command == "setb" then
-    local _, _, _, filename, line = string.find(line, "^([a-z]+)%s+([%w%p]+)%s+(%d+)$")
-    if filename and line then
-      filename = basedir .. filename
-      if not breakpoints[filename] then breakpoints[filename] = {} end
-      client:send("SETB " .. string.gsub(filename, " ", "%%20") .. " " .. line .. "\n")
-      if client:receive() == "200 OK" then 
-        breakpoints[filename][line] = true
-      else
-        print("Error: breakpoint not inserted")
-      end
-    else
-      print("Invalid command")
-    end
+    setb(line)
   elseif command == "setw" then
     local _, _, exp = string.find(line, "^[a-z]+%s+(.+)$")
     if exp then
