@@ -15,8 +15,7 @@ local breakpoints = {}
 local watches = {}
 local basedir = ""
 
-function setb(line)
-end
+local state_filename = "remdebug.state"
   
 function process_line(line)
   local _, _, command = string.find(line, "^([a-z]+)")
@@ -192,6 +191,16 @@ function process_line(line)
     else
       print(basedir)
     end
+  elseif command == "save" then
+    local f = io.open(state_filename, "w")
+    if f ~= nil then
+      for k,v in pairs(breakpoints) do
+        for k2, v2 in pairs(v) do
+          f:write(string.format("setb %s %d\n", k, k2))
+        end        
+      end
+    end
+    f:close()
   elseif command == "help" then
     print("setb <file> <line>    -- sets a breakpoint")
     print("delb <file> <line>    -- removes a breakpoint")
@@ -207,6 +216,7 @@ function process_line(line)
     print("eval <exp>            -- evaluates expression on the current context and returns its value")
     print("exec <stmt>           -- executes statement on the current context")
     print("basedir [<path>]      -- sets the base path of the remote application, or shows the current one")
+    print(string.format("save                  -- persists debugger state (breakpoints) to %s file", state_filename))
     print("exit                  -- exits debugger")
   else
     local _, _, spaces = string.find(line, "^(%s*)$")
